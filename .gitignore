@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+**/data/
+**/__pycache__/
+.venv/
+*.log
+*.tsbuildinfo
+*.pem
+*.key
+backups/
+.runtime/
+coverage/

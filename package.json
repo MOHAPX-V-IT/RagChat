@@ -1,0 +1,24 @@
+{
+  "name": "ragchat",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "api",
+    "web"
+  ],
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "dev": "npm run dev --workspace web",
+    "build": "npm run build --workspace web",
+    "test": "npm run test --workspace api",
+    "up": "docker compose up -d --build",
+    "down": "docker compose down",
+    "logs": "docker compose logs -f",
+    "check": "node scripts/check-export.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "license": "MIT"
+}
