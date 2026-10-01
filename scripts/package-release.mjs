@@ -6,7 +6,8 @@ const root=path.resolve(import.meta.dirname,'..');
 execFileSync(process.execPath,[path.join(root,'scripts/check-export.mjs')],{stdio:'inherit'});
 const version=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8')).version;
 const out=path.join(path.dirname(root),`RagChat-${version}.zip`);
-if(fs.existsSync(out))throw new Error('Release already exists: '+out);
+const replace=process.argv.includes('--replace');
+if(fs.existsSync(out)&&!replace)throw new Error('Release already exists: '+out+' (use --replace to refresh this generated archive)');
 const skip=new Set(['node_modules','.git','.venv','__pycache__','.runtime','data','backups','coverage']);
 const allowedRoots=new Set(['api','web','rag-service','scripts','docs']);
 const rootFiles=new Set(['.env.example','.gitattributes','.gitignore','Caddyfile','CONTRIBUTING.md','docker-compose.yml','LICENSE','package-lock.json','package.json','README.md','README.ru.md','SECURITY.md','CHANGELOG.md']);
@@ -40,5 +41,5 @@ for(const file of files.sort()){
 }
 const directory=Buffer.concat(central),end=Buffer.alloc(22);
 end.writeUInt32LE(0x06054b50);end.writeUInt16LE(files.length,8);end.writeUInt16LE(files.length,10);end.writeUInt32LE(directory.length,12);end.writeUInt32LE(offset,16);
-fs.writeFileSync(out,Buffer.concat([...local,directory,end]),{flag:'wx'});
+fs.writeFileSync(out,Buffer.concat([...local,directory,end]),{flag:replace?'w':'wx'});
 console.log(`Created ${out}: ${files.length} files, ${fs.statSync(out).size} bytes. Includes source and built frontend; excludes credentials, databases, dependencies and Git history.`);

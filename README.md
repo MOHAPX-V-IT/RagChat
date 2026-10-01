@@ -92,6 +92,26 @@ flowchart TD
 
 Learning means **retrieving stored, reviewed answers**—not updating model weights or automatic fine-tuning.
 
+### Independent revisions, not a shared overwriteable document
+
+Questions now open on a dedicated page rather than a queue overlay. It shows the question, requester, responsible reviewer, current answer, votes, and revisions. Stage-time, claim-verification, internal-document, and internet-source blocks have been removed from this page; diagnostic evidence and metrics are not inserted into the draft text.
+
+Each eligible expert edits **their own copy**. This is not simultaneous editing of a shared document. Saving creates a named, immutable revision; another save creates another entry without overwriting a colleague's text. Unsaved work can be recovered from the browser's local storage, so do not share browser profiles when handling sensitive content.
+
+Saving a revision **does not deliver an answer**, replace the active text, reset votes, or extend the deadline. Once discussion starts, the current responsible reviewer can select a saved revision. It becomes the current answer; the previous round and its votes are archived, counts reset, and a fresh 24-hour deadline starts from selection. This cycle may repeat. Administrators retain administrative overrides; ordinary peers cannot select on the owner's behalf.
+
+| Current round at its 24-hour deadline | Outcome |
+|---|---|
+| Yes exceeds no | Deliver the current answer. |
+| No votes: 0 / 0 | Deliver the current answer in new rounds: the original proposal if no revision was selected, otherwise the selected revision. |
+| Nonzero tie or no exceeds yes | Do not deliver; keep discussion available for comments and another revision. |
+
+Early approval by the responsible reviewer or administrator delivers the current answer without waiting for the deadline or majority. Votes on an expired round are closed; selecting a different revision opens a new round. The background scheduler processes due tasks on its next pass, not with a second-accurate delivery guarantee. Requesters do not see the editor, revisions, internal comments, or votes: only processing status and the official answer.
+
+### A unified draft, not a retrieval report
+
+With adapters configured, the model receives document, expert-answer, and web-search context together. Instructions request concise but complete prose without separate knowledge/web sections, bibliographies, or citation labels. A final cleanup removes technical references and source sections without truncating the substantive answer. Uncertainty and limitations should remain. Evidence stays in separate diagnostic metadata; a missing search provider does not mean that no information exists online. Mock mode does not research or invent factual answers.
+
 ## Roles
 
 | Role | Default responsibilities |
@@ -136,10 +156,11 @@ The administrator is bootstrapped into a new database. Changing `ADMIN_PASSWORD`
 1. Create a requester and two experts. Use separate browser profiles/private windows for independent sessions.
 2. Optionally upload a small PDF with selectable text through document management. The knowledge base starts empty.
 3. As requester, create a chat and ask about the document.
-4. As the first expert, claim the task and replace the mock with a meaningful test answer.
-5. Propose it for discussion. As the second expert, open it and vote.
-6. To finish immediately, return as the proposer and confirm early. Otherwise, the documented 24-hour release policy applies.
-7. Check answer delivery, ratings, history, and—for an edited general-pool answer—expert-knowledge indexing status.
+4. As the first expert, claim the task, open its page, write a meaningful test answer in your independent editor, and save the revision.
+5. Propose the initial draft for discussion, then select your saved revision. Verify the replacement, reset vote counts, and new deadline.
+6. As the second expert, open the discussion, save another revision, and vote on the current answer. Saving alone must not change the active answer, votes, or deadline. If appropriate, the responsible reviewer selects the second expert's revision and starts another round.
+7. For immediate delivery, return as the current responsible reviewer and release early. Otherwise follow the documented 24-hour rules.
+8. As the requester, verify receipt of the final text and absence of internal discussions. Check rating, history, and expert-knowledge indexing for an edited general-pool answer.
 
 This exercises workflow, not the quality of a real model or retriever.
 
@@ -333,7 +354,7 @@ npm run check
 npm run release
 ```
 
-The release command creates `RagChat-0.2.0.zip` in the parent directory and refuses to overwrite an existing release. It includes source, documentation, deployment templates, and the built frontend. It excludes local credentials, databases, knowledge documents, logs, installed dependencies, and Git history. On a new machine, install dependencies and generate your own configuration before starting the stack. None of these commands starts Docker.
+The release command creates `RagChat-0.2.0.zip` in the parent directory and refuses to overwrite an existing release by default. To explicitly refresh a previously generated archive, use `npm run release -- --replace`. It includes source, documentation, deployment templates, and the built frontend. It excludes local credentials, databases, knowledge documents, logs, installed dependencies, and Git history. On a new machine, install dependencies and generate your own configuration before starting the stack. None of these commands starts Docker.
 
 ## Deploying your instance
 
