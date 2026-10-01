@@ -18,7 +18,7 @@ import { analyticsWorkbook } from './xlsx.js';
 import { markAllNotificationsRead } from './notifications.js';
 import { buildSalesDashboard, manualReminderBlock } from './sales-dashboard.js';
 import { isAfterStatisticsReset } from './statistics.js';
-import { discussionVisible, tally, propose, archiveDiscussion, voteBlock, recordVote, deliveryBlock, pinnedOrder } from './discussion.js';
+import { discussionVisible, tally, propose, archiveDiscussion, voteBlock, recordVote, deliveryBlock, pinnedOrder, responsibleId, saveRevision, selectRevision } from './discussion.js';
 
 const app = express();
 const port = Number(process.env.PORT || 3001);
@@ -67,6 +67,7 @@ async function pushToUsers(users, payload) {
 }
 
 function taskVisibleTo(user, task) {
+  if (user.role === 'REQUESTER') return false;
   return user.role === 'ADMIN' || discussionVisible(user, task) || canAccessReviewPool(user, task.reviewPool || 'GENERAL');
 }
 
@@ -100,7 +101,7 @@ function enrichTask(task, data) {
 function taskForViewer(task, data, user) {
   if (!task) return null;
   const result = enrichTask(task, data);
-  if (hasPermission(user, 'reviews.view')) return result;
+  if (user.role !== 'REQUESTER' && hasPermission(user, 'reviews.view')) return result;
   const keys = ['id', 'conversationId', 'status', 'reviewPool', 'createdAt', 'updatedAt',
     'assignedExpert', 'estimatedWaitMinutes', 'timing'];
   return { ...Object.fromEntries(keys.map((k) => [k, result[k]])),
@@ -602,12 +603,12 @@ app.get('/api/directory', authRequired, allowPermission('directory.view'), (_req
 });
 
 app.get('/api/sales/dashboard', authRequired, allowPermission('analytics.view'), (req, res) => {
-  if (!['MANAGER', 'ADMIN'].includes(req.user.role)) return res.status(403).json({ error: 'Рабочий стол доступен только отделу руководителей и администраторам.' });
+  if (!['MANAGER', 'ADMIN'].includes(req.user.role)) return res.status(403).json({ error: 'Рабочий стол доступен только руководителям и администраторам.' });
   res.json({ dashboard: buildSalesDashboard(store.read()) });
 });
 
 app.post('/api/sales/reviews/:id/remind', authRequired, allowPermission('reviews.route'), asyncRoute(async (req, res) => {
-  if (!['MANAGER', 'ADMIN'].includes(req.user.role)) return res.status(403).json({ error: 'Напоминать экспертам может только отдел руководителей или администратор.' });
+  if (!['MANAGER', 'ADMIN'].includes(req.user.role)) return res.status(403).json({ error: 'Напоминать экспертам могут только руководители и администраторы.' });
   const now = Date.now();
   const result = await store.mutate((data) => {
     const task = data.reviewTasks.find((item) => item.id === req.params.id);
@@ -773,7 +774,7 @@ async function deliverAnswer(req, res, automatic = false) {
     const answer = task.discussion.answer;
     const edited = task.discussion.edited;
     const now = new Date().toISOString();
-    task.discussion.delivery = { mode: automatic ? 'MAJORITY_24H' : 'EARLY_CONFIRMATION',
+    task.discussion.delivery = { mode: automatic ? (task.discussion.votes.length ? 'MAJORITY_24H' : 'NO_VOTES_24H') : 'EARLY_CONFIRMATION',
       by: automatic ? 'system' : req.user.id, at: now, ...tally(task.discussion) };
     audit(data, automatic ? 'system' : req.user.id, 'DISCUSSION_DELIVERED', 'review_task', task.id,
       { version: task.discussion.version, ...task.discussion.delivery });
@@ -892,6 +893,37 @@ async function submitDiscussion(req, res, edited) {
 app.post('/api/reviews/:id/approve', authRequired, allowPermission('reviews.manage'), asyncRoute((req, res) => submitDiscussion(req, res, false)));
 app.post('/api/reviews/:id/edit-and-send', authRequired, allowPermission('reviews.manage'), asyncRoute((req, res) => submitDiscussion(req, res, true)));
 app.post('/api/reviews/:id/confirm-early', authRequired, allowPermission('reviews.manage'), asyncRoute((req, res) => deliverAnswer(req, res)));
+app.post('/api/reviews/:id/revisions', authRequired, allowPermission('reviews.manage'), asyncRoute(async (req, res) => {
+  const result = await store.mutate((data) => {
+    const task = data.reviewTasks.find((t) => t.id === req.params.id);
+    if (!task || !taskVisibleTo(req.user, task)) return { error: 'Вопрос недоступен.' };
+    try {
+      const revision = saveRevision(task, req.user, id('revision'), req.body.content, req.body.baseVersion);
+      audit(data, req.user.id, 'REVIEW_REVISION_SAVED', 'review_task', task.id, { revisionId: revision.id, baseVersion: revision.baseVersion });
+      return { task: enrichTask(task, data), revision };
+    } catch (error) { return { error: error.message }; }
+  });
+  res.status(result.error ? 409 : 201).json(result);
+}));
+app.post('/api/reviews/:id/select-revision', authRequired, allowPermission('reviews.manage'), asyncRoute(async (req, res) => {
+  const result = await store.mutate((data) => {
+    const task = data.reviewTasks.find((t) => t.id === req.params.id);
+    if (!task || !taskVisibleTo(req.user, task)) return { error: 'Вопрос недоступен.' };
+    try {
+      const d = selectRevision(task, req.user, String(req.body.revisionId || ''), Number(req.body.version));
+      addStage(task, 'DISCUSSION_STARTED', { at: d.proposedAt, actorId: req.user.id });
+      audit(data, req.user.id, 'DISCUSSION_REVISION_SELECTED', 'review_task', task.id, { version: d.version, revisionId: d.selectedRevisionId, deadlineAt: d.deadlineAt });
+      const recipients = activeUsersByRole(data, ['EXPERT', 'SPECIALIST', 'ADMIN'])
+        .filter((u) => u.id !== req.user.id && u.id !== task.representativeId && hasPermission(u, 'reviews.view'));
+      const body = `${fullName(req.user)} выбрал новую редакцию ответа на «${questionTitle(data, task)}». Голосование началось заново на 24 часа.`;
+      for (const u of recipients) addNotification(data, u, { type: 'DISCUSSION_STARTED', title: 'Новая редакция на обсуждении', body, taskId: task.id });
+      return { task: enrichTask(task, data), recipients, body };
+    } catch (error) { return { error: error.message }; }
+  });
+  if (result.error) return res.status(409).json({ error: result.error });
+  await pushToUsers(result.recipients.filter((u) => u.expertStatus !== 'DND'), { title: 'Новая редакция на обсуждении', body: result.body, taskId: result.task.id, url: `/?section=queue&task=${encodeURIComponent(result.task.id)}` });
+  res.json({ task: result.task });
+}));
 app.post('/api/reviews/:id/vote', authRequired, allowPermission('reviews.manage'), asyncRoute(async (req, res) => {
   if (!['YES', 'NO'].includes(req.body.value)) return res.status(400).json({ error: 'Выберите «За» или «Против».' });
   const result = await store.mutate((data) => {
@@ -914,8 +946,8 @@ export async function processDiscussions() {
     const data = store.read();
     for (const task of data.reviewTasks.filter((t) => t.status === 'DISCUSSION' && t.discussion)) {
       if (deliveryBlock(task, null, task.discussion.version, true)) continue;
-      const author = findUserRecord(data, task.discussion.proposedBy) || {
-        id: task.discussion.proposedBy, firstName: task.discussion.proposedName, lastName: '', role: 'EXPERT' };
+      const author = findUserRecord(data, responsibleId(task)) || {
+        id: responsibleId(task), firstName: task.discussion.proposedName, lastName: '', role: 'EXPERT' };
       const response = { status() { return this; }, json() {} };
       await deliverAnswer({ params: { id: task.id }, body: { version: task.discussion.version }, user: author }, response, true);
     }
@@ -1413,12 +1445,14 @@ app.use((error, _req, res, _next) => {
   res.status(500).json({ error: 'Внутренняя ошибка сервиса.' });
 });
 
-await store.init();
-const titleCandidates = await initializeConversationTitles();
-for (const candidate of titleCandidates) void generateConversationTitle(candidate.conversationId, candidate);
-startReminderScheduler();
-void processDiscussions();
-setInterval(() => void processDiscussions(), 30_000).unref();
-app.listen(port, () => console.log(`RagChat API: http://localhost:${port}`));
+if (process.env.NODE_ENV !== 'test') {
+  await store.init();
+  const titleCandidates = await initializeConversationTitles();
+  for (const candidate of titleCandidates) void generateConversationTitle(candidate.conversationId, candidate);
+  startReminderScheduler();
+  void processDiscussions();
+  setInterval(() => void processDiscussions(), 30_000).unref();
+  app.listen(port, () => console.log(`RagChat API: http://localhost:${port}`));
+}
 
 export default app;

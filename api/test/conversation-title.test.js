@@ -8,17 +8,17 @@ import {
 
 test('new and explicitly automatic conversations can be retitled', () => {
   assert.equal(isAutomaticConversationTitle({ title: 'Новый диалог 3' }), true);
-  assert.equal(isAutomaticConversationTitle({ title: 'Продукт A при ОРВИ', titleSource: 'AUTO' }), true);
+  assert.equal(isAutomaticConversationTitle({ title: 'Продукт A при миграции', titleSource: 'AUTO' }), true);
   assert.equal(isAutomaticConversationTitle({ title: 'Мой важный чат', titleSource: 'MANUAL' }), false);
 });
 
 test('fallback title is readable and safely limited', () => {
   assert.equal(fallbackConversationTitle('  Расскажи про Продукт A?  '), 'Продукт A: общая информация');
-  assert.equal(fallbackConversationTitle('Можно ли применять Продукт A при ОРВИ?'), 'Продукт A при ОРВИ');
-  assert.equal(fallbackConversationTitle('Какие противопоказания у Продукт Bа?'), 'Продукт Bа: противопоказания');
+  assert.equal(fallbackConversationTitle('Можно ли применять Продукт A при миграции?'), 'Продукт A при миграции');
+  assert.equal(fallbackConversationTitle('Какие ограничения у Продукта B?'), 'Продукта B: ограничения');
   assert.ok(fallbackConversationTitle('Очень длинный общий вопрос '.repeat(5)).length <= 64);
 });
 
 test('generated title is stripped of markdown, quotes and labels', () => {
-  assert.equal(normalizeGeneratedTitle('Заголовок: **«Продукт A при ОРВИ»**\nЛишний текст', 'Вопрос'), 'Продукт A при ОРВИ');
+  assert.equal(normalizeGeneratedTitle('Заголовок: **«Продукт A при миграции»**\nЛишний текст', 'Вопрос'), 'Продукт A при миграции');
 });

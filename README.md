@@ -65,12 +65,13 @@ flowchart TD
     D --> E[General or specialist queue]
     E --> C[One reviewer claims and checks]
     C --> P[Propose answer for discussion]
-    P --> V[Eligible peers vote and comment]
+    P --> V[Eligible peers save revisions, vote and comment]
     V --> A{Release condition?}
-    A -->|24 hours elapsed; yes exceeds no| F[Deliver official answer]
-    A -->|Author or administrator confirms early| F
-    A -->|No majority after 24 hours| H[Keep in discussion; do not deliver]
+    A -->|24 hours elapsed; yes exceeds no or zero votes| F[Deliver official answer]
+    A -->|Responsible reviewer or administrator confirms early| F
+    A -->|Nonzero tie or negative majority after 24 hours| H[Keep in discussion; do not deliver]
     C -->|Return with recipient and reason| E
+    P -->|Responsible reviewer selects a revision; restart 24 hours| P
     P -->|Authorized targeted return| E
     F --> K[Eligible edits enter expert knowledge]
 ```
@@ -82,11 +83,12 @@ flowchart TD
 3. Routing uses configured keywords: `GENERAL` by default, `SPECIALIST` when a phrase matches. The bundled classifier is **not an AI classifier**.
 4. Only one reviewer can claim the task. Non-administrators cannot review their own questions.
 5. The reviewer checks or edits the answer, then proposes it for discussion. This first approval **does not deliver the answer**.
-6. Eligible experts from both pools and administrators can participate. Each voter has one changeable vote. The proposer and question author cannot vote on that answer.
-7. After 24 hours, the scheduler releases only if **yes exceeds no**. A tie, no votes, or a negative majority leaves the answer in discussion. Voting closes at the deadline; comments remain available. Silence is not approval.
-8. The proposer or an authorized administrator can release early, including when negative votes exist. The action is audited. Change this policy before deployment if you require a quorum or prohibit overrides.
+6. Eligible experts from both pools and administrators can participate. Each voter has one changeable vote. The responsible reviewer, selected revision author and question author cannot vote on that answer.
+7. After 24 hours, the scheduler releases the **current selected answer** when yes exceeds no, or when a new discussion round has zero votes. A nonzero tie or negative majority leaves it in discussion. Pre-upgrade rounds keep their original strict-majority policy. Voting closes at the deadline; comments remain available.
+8. The current responsible reviewer or an authorized administrator can release early, including when negative votes exist. The action is audited. Change this policy before deployment if you require a quorum or prohibit overrides.
 9. A return requires a named expert and a reason. It is pinned for that expert and routed to their pool. Assignment protection is temporary, not a permanent private queue. A new proposal starts a new version and voting period.
-10. Corrected answers from the **general** pool enter expert knowledge after delivery. Unchanged drafts and specialist-pool answers do not automatically enter this store. Indexing status is tracked; failed indexing needs investigation.
+10. Opening a question leads to a dedicated page with the question, owner, current answer, votes, independent editor, named revisions and team comments. Each save creates an immutable revision without replacing colleagues' texts. During discussion, only the responsible reviewer (or an authorized administrator) selects a revision: the previous round is archived, votes reset, and a fresh 24-hour period starts. Requesters see only their question status and delivered answer.
+11. Corrected answers from the **general** pool enter expert knowledge after delivery. Unchanged drafts and specialist-pool answers do not automatically enter this store. Indexing status is tracked; failed indexing needs investigation.
 
 Learning means **retrieving stored, reviewed answers**—not updating model weights or automatic fine-tuning.
 
@@ -136,7 +138,7 @@ The administrator is bootstrapped into a new database. Changing `ADMIN_PASSWORD`
 3. As requester, create a chat and ask about the document.
 4. As the first expert, claim the task and replace the mock with a meaningful test answer.
 5. Propose it for discussion. As the second expert, open it and vote.
-6. To finish immediately, return as the proposer and confirm early. Otherwise, the 24-hour majority rule applies.
+6. To finish immediately, return as the proposer and confirm early. Otherwise, the documented 24-hour release policy applies.
 7. Check answer delivery, ratings, history, and—for an edited general-pool answer—expert-knowledge indexing status.
 
 This exercises workflow, not the quality of a real model or retriever.
@@ -171,7 +173,7 @@ Replace the example URL; set the key if the adapter needs Bearer authentication.
 }
 ```
 
-`text` is required; metrics are optional. The adapter handles provider authentication, model selection, prompting, references, and accurate usage reporting. Calls have a 55-second timeout and do not follow redirects. Keys stay in server configuration, not browser settings.
+`text` is required; metrics are optional. The adapter handles provider authentication, model selection, and accurate usage reporting. Honor the supplied synthesis instructions: produce one complete prose answer without bibliographies, URLs, numbered source sections or citation markers. Document and web evidence remain separate response metadata. Calls have a 55-second timeout and do not follow redirects. Keys stay in server configuration, not browser settings.
 
 ### Web-search adapter
 
@@ -315,7 +317,23 @@ Pop-Location
 
 `npm run dev` starts **only** Vite on port 5173; its proxy expects API port 3001. It does not start PostgreSQL or Python. A visible login page is not evidence that authenticated workflows work.
 
-Recorded verification: **44 API tests, 8 RAG tests, successful frontend build**. These are focused tests, not production certification. The source checker is heuristic, not comprehensive secret detection. See [validation record](docs/VALIDATION.md).
+Recorded verification: **50 API tests, 13 RAG tests, successful frontend build**. These are focused tests, not production certification. The source checker is heuristic, not comprehensive secret detection. See [validation record](docs/VALIDATION.md).
+
+## Building a portable release
+
+Version **0.2.0** includes the updated question page, independent expert revisions, responsible-reviewer selection, restarted voting rounds, and unified draft text. See [CHANGELOG.md](CHANGELOG.md).
+
+After installing the development dependencies and Python requirements described above:
+
+```sh
+npm test
+npm run test:rag
+npm run build
+npm run check
+npm run release
+```
+
+The release command creates `RagChat-0.2.0.zip` in the parent directory and refuses to overwrite an existing release. It includes source, documentation, deployment templates, and the built frontend. It excludes local credentials, databases, knowledge documents, logs, installed dependencies, and Git history. On a new machine, install dependencies and generate your own configuration before starting the stack. None of these commands starts Docker.
 
 ## Deploying your instance
 
@@ -341,7 +359,7 @@ Read [SECURITY.md](SECURITY.md). The template is not a security or compliance ce
 | Draft says no model is connected | Default `MODEL_PROVIDER=mock`; configure an adapter and recreate `rag-api`. |
 | No internet evidence | Search URL, adapter response, `searchStatus`; a model key alone is insufficient. |
 | Few relevant passages | PDF text, current versions, vocabulary overlap, lexical retrieval limitations. |
-| Answer stays in discussion | Deadline, votes, early-release eligibility. No votes never means approval. |
+| Answer stays in discussion | Deadline, votes, current round policy and responsible reviewer. New zero-vote rounds release after 24 hours; old rounds keep their original rule. |
 | Expert cannot claim | Pool, permissions, owner, own-question restriction, temporary assignment protection. |
 | Email exists locally but never arrives | `local-outbox` means SMTP is absent; test actual SMTP delivery. |
 | Bell works but no phone push | VAPID, device permission/subscription, HTTPS, OS/browser restrictions. |

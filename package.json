@@ -1,7 +1,7 @@
 {
   "name": "ragchat",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "workspaces": [
     "api",
@@ -15,7 +15,9 @@
     "up": "docker compose up -d --build",
     "down": "docker compose down",
     "logs": "docker compose logs -f",
-    "check": "node scripts/check-export.mjs"
+    "check": "node scripts/check-export.mjs",
+    "test:rag": "node scripts/test-rag.mjs",
+    "release": "node scripts/package-release.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

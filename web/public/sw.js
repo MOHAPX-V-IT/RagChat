@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ragchat-static-v13';
+const CACHE_NAME = 'ragchat-static-v14';
 const APP_SHELL = [
   '/',
   '/manifest.webmanifest',

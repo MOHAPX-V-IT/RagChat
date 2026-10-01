@@ -54,9 +54,11 @@ export type ReviewTask = {
   finalAnswer?: string | null;
   returnTo?: string | null;
   returnExpert?: User | null;
+  revisions?: Array<{ id: string; authorId: string; authorName: string; content: string; baseVersion: number; createdAt: string }>;
   discussion?: {
     version: number; proposedBy: string; proposedName: string; proposedAt: string; deadlineAt: string;
     answer: string; edited: boolean; yes: number; no: number;
+    autoReleaseWithoutVotes?: boolean; selectedRevisionId?: string; answerAuthorId?: string; answerAuthorName?: string;
     votes: Array<{ userId: string; name: string; value: 'YES' | 'NO'; at: string }>;
     delivery?: { mode: string; by: string; at: string; yes: number; no: number };
   } | null;

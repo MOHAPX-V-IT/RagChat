@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { api, patch, post, put, remove, session, upload } from './api';
 import type { Conversation, KnowledgeEntry, Message, ReviewTask, Role, User } from './types';
-import { DiscussionPanel } from './DiscussionPanel';
+import { ReviewQuestionPage } from './ReviewQuestionPage';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { AnalyticsPage, EvidencePanel, ProcessTimeline, PushDevicesPanel, PushNotificationControl, SlaBadge } from './AdvancedFeatures';
@@ -32,7 +32,7 @@ const statusLabels: Record<string, string> = {
 };
 
 const auditActionLabels: Record<string, string> = {
-  DISCUSSION_STARTED: 'Ответ на обсуждении', DISCUSSION_VOTE: 'Голос по ответу', DISCUSSION_DELIVERED: 'Ответ отправлен после обсуждения',
+  DISCUSSION_STARTED: 'Ответ на обсуждении', DISCUSSION_VOTE: 'Голос по ответу', DISCUSSION_DELIVERED: 'Ответ отправлен после обсуждения', REVIEW_REVISION_SAVED: 'Сохранена редакция эксперта', DISCUSSION_REVISION_SELECTED: 'Выбрана редакция для обсуждения',
   LOGIN: 'Выполнен вход', DRAFT_READY: 'Черновик подготовлен', DRAFT_DEGRADED: 'Черновик создан без ИИ',
   REVIEW_CLAIMED: 'Вопрос взят в работу', REVIEW_APPROVED: 'Ответ согласован', REVIEW_EDITED: 'Ответ исправлен и отправлен',
   REVIEW_APPROVED_AND_DELIVERED: 'Ответ согласован и доставлен', REVIEW_EDITED_AND_DELIVERED: 'Исправленный ответ доставлен',
@@ -41,12 +41,12 @@ const auditActionLabels: Record<string, string> = {
   REVIEW_RELEASED_AFTER_USER_DELETE: 'Вопрос освобождён после удаления эксперта', LLM_KEY_UPDATED: 'Обновлён ключ модели',
   DOCUMENT_UPLOADED: 'Загружен документ', DOCUMENT_DELETED: 'Удалён PDF из базы знаний', DOCUMENT_REINDEX_STARTED: 'Запущена индексация', SOURCE_CREATED: 'Добавлен источник',
   SOURCE_UPDATED: 'Изменён источник', SOURCE_DELETED: 'Удалён источник',
-  CONVERSATION_CREATED: 'Создан диалог', CONVERSATION_RENAMED: 'Переименован диалог', CONVERSATION_SOFT_DELETED: 'Диалог скрыт сотрудникставителем',
+  CONVERSATION_CREATED: 'Создан диалог', CONVERSATION_RENAMED: 'Переименован диалог', CONVERSATION_SOFT_DELETED: 'Диалог скрыт сотрудником',
   CONVERSATION_AUTO_TITLED: 'Автоматически назван диалог',
   QUESTION_SUBMITTED: 'Отправлен вопрос', QUESTION_CREATED: 'Создан вопрос', MESSAGE_RATED: 'Ответ оценён', ANSWER_RATED: 'Ответ оценён', KNOWLEDGE_UPDATED: 'Обновлено экспертное знание',
   MODEL_DIAGNOSTIC_RUN: 'Проверена модель', EMAIL_DIAGNOSTIC_RUN: 'Проверена почта', RAG_CACHE_CLEARED: 'Очищен кэш RAG',
   DRAFT_REGENERATION_STARTED: 'Повторно запущено формирование черновика',
-  QUESTION_CLASSIFIED: 'Определено направление вопроса', MANAGER_OVERDUE_ALERT: 'Продажам отправлено уведомление о просрочке',
+  QUESTION_CLASSIFIED: 'Определено направление вопроса', MANAGER_OVERDUE_ALERT: 'Руководителям отправлено уведомление о просрочке',
   REMINDER_DELIVERY_RECORDED: 'Зафиксирована доставка напоминания',
   PUSH_SUBSCRIBED: 'Зарегистрировано push-устройство', PUSH_UNSUBSCRIBED: 'Отключено push-устройство',
   PUSH_TESTED: 'Проверена push-доставка', PUSH_DEVICE_REMOVED: 'Удалено push-устройство',
@@ -231,7 +231,7 @@ function AppShell({ user, section, setSection, children, onLogout, installAvaila
     if (permissions.has('directory.view')) workItems.push({ id: 'team', label: 'Команда', icon: Users });
     if (permissions.has('knowledge.manage')) workItems.push({ id: 'knowledge', label: 'База знаний', icon: Database });
     if (permissions.has('analytics.view')) managementItems.push({ id: 'overview', label: 'Обзор', icon: Activity }, { id: 'analytics', label: 'Аналитика', icon: Clock3 });
-    if (user.role === 'ADMIN' && permissions.has('analytics.view')) managementItems.push({ id: 'sales-control', label: 'Контроль руководителей', icon: Activity });
+    if (user.role === 'ADMIN' && permissions.has('analytics.view')) managementItems.push({ id: 'sales-control', label: 'Контроль команды', icon: Activity });
     if (permissions.has('users.manage')) managementItems.push({ id: 'users', label: 'Пользователи', icon: Users });
     if (permissions.has('audit.view')) managementItems.push({ id: 'audit', label: 'Журнал действий', icon: ListChecks });
     if (permissions.has('system.manage')) managementItems.push({ id: 'system', label: 'Система и API', icon: Server });
@@ -548,7 +548,7 @@ function RepWorkspace({ user, showFaq }: { user: User; showFaq: boolean }) {
       <div className="faq-flow">
         {faq.map((item, index) => <div className="faq-row" key={item}><span>{index + 1}</span><p>{item}</p></div>)}
       </div>
-      <div className="information-note"><ShieldCheck size={22} /><div><strong>Ответ проверяется человеком</strong><p>ИИ не отправляет общий ответ напрямую. До согласования в чате отображается только статус подготовки.</p></div></div>
+      <div className="information-note"><ShieldCheck size={22} /><div><strong>Ответ проверяется человеком</strong><p>ИИ не отправляет ответ напрямую. До согласования в чате отображается только статус подготовки.</p></div></div>
     </section>
   );
 
@@ -602,7 +602,7 @@ function RepWorkspace({ user, showFaq }: { user: User; showFaq: boolean }) {
                 </article>
               ))}
               <ProcessTimeline task={activeTask || latestTask} />
-              {activeTask && <div className="pending-answer"><div className="pending-pulse"><span /><span /><span /></div><div><strong>Ответ готовится и проходит проверку</strong><p>{activeTask.status === 'DISCUSSION' ? 'Ответ проходит коллективное обсуждение. После согласования вы получите уведомление.' : activeTask.status === 'GENERATING' ? 'ИИ определяет направление, собирает материалы и формирует черновик.' : activeTask.status === 'IN_REVIEW' ? `${activeTask.assignedExpert?.name || (activeTask.reviewPool === 'SPECIALIST' ? 'Сотрудник профильных экспертов' : 'Эксперт')} уже работает с ответом.` : activeTask.reviewPool === 'SPECIALIST' ? 'Вопрос находится в очереди профильных экспертов.' : 'Вопрос находится в очереди экспертов.'}</p></div></div>}
+              {activeTask && <div className="pending-answer"><div className="pending-pulse"><span /><span /><span /></div><div><strong>Ответ готовится и проходит проверку</strong><p>{activeTask.status === 'DISCUSSION' ? 'Ответ проходит коллективное обсуждение. После согласования вы получите уведомление.' : activeTask.status === 'GENERATING' ? 'ИИ определяет направление, собирает материалы и формирует черновик.' : activeTask.status === 'IN_REVIEW' ? `${activeTask.assignedExpert?.name || (activeTask.reviewPool === 'SPECIALIST' ? 'Профильный эксперт' : 'Эксперт')} уже работает с ответом.` : activeTask.reviewPool === 'SPECIALIST' ? 'Вопрос находится в очереди профильных экспертов.' : 'Вопрос находится в общей очереди экспертов.'}</p></div></div>}
               <div />
             </div>
             <div className="composer-wrap">
@@ -615,7 +615,7 @@ function RepWorkspace({ user, showFaq }: { user: User; showFaq: boolean }) {
           </>
         )}
       </section>
-      {ratingTarget && <div className="dialog-scrim" role="presentation" onMouseDown={() => setRatingTarget(null)}><section className="feedback-dialog" role="dialog" aria-modal="true" aria-labelledby="feedback-title" onMouseDown={(event) => event.stopPropagation()}><div><h2 id="feedback-title">Что было неполезно?</h2><p>Комментарий поможет улучшить будущие ответы.</p></div><textarea value={ratingReason} onChange={(event) => setRatingReason(event.target.value)} placeholder="Например: не хватило подробностей или источник устарел" autoFocus /><div><button className="button secondary" onClick={() => setRatingTarget(null)}>Отмена</button><button className="button primary" disabled={ratingReason.trim().length < 3} onClick={() => rate(ratingTarget.id, 'DOWN', ratingReason)}>Отправить оценку</button></div></section></div>}
+      {ratingTarget && <div className="dialog-scrim" role="presentation" onMouseDown={() => setRatingTarget(null)}><section className="feedback-dialog" role="dialog" aria-modal="true" aria-labelledby="feedback-title" onMouseDown={(event) => event.stopPropagation()}><div><h2 id="feedback-title">Что было неполезно?</h2><p>Комментарий поможет улучшить будущие ответы.</p></div><textarea value={ratingReason} onChange={(event) => setRatingReason(event.target.value)} placeholder="Например: не хватило дозировки или источник устарел" autoFocus /><div><button className="button secondary" onClick={() => setRatingTarget(null)}>Отмена</button><button className="button primary" disabled={ratingReason.trim().length < 3} onClick={() => rate(ratingTarget.id, 'DOWN', ratingReason)}>Отправить оценку</button></div></section></div>}
     </div>
   );
 }
@@ -626,8 +626,6 @@ function StatusBadge({ status }: { status: string }) {
 
 function ReviewWorkspace({ user, embedded = false }: { user: User; embedded?: boolean }) {
   const [tasks, setTasks] = useState<ReviewTask[]>([]);
-  const [selected, setSelected] = useState<ReviewTask | null>(null);
-  const [history, setHistory] = useState<Message[]>([]);
   const [sort, setSort] = useState<'desc' | 'asc'>('desc');
   const [status, setStatus] = useState('OPEN');
   const [hasComment, setHasComment] = useState('');
@@ -636,23 +634,11 @@ function ReviewWorkspace({ user, embedded = false }: { user: User; embedded?: bo
   const [reviewPool, setReviewPool] = useState(user.role === 'EXPERT' ? 'GENERAL' : user.role === 'SPECIALIST' ? 'SPECIALIST' : '');
   const [representatives, setRepresentatives] = useState<User[]>([]);
   const [experts, setExperts] = useState<User[]>([]);
-  const [returnExpert, setReturnExpert] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [answer, setAnswer] = useState('');
-  const [initialAnswer, setInitialAnswer] = useState('');
   const [priority, setPriority] = useState('');
   const [product, setProduct] = useState('');
   const [products, setProducts] = useState<string[]>([]);
-  const [templates, setTemplates] = useState<Array<{ id: string; title: string; content: string }>>([]);
   const [workload, setWorkload] = useState<Array<{ id: string; name: string; role?: Role; status: string; workload: number; completed: number; averageReviewMinutes: number }>>([]);
   const [presence, setPresence] = useState(user.expertStatus || 'AVAILABLE');
-  const [internalComment, setInternalComment] = useState('');
-  const [mentionIds, setMentionIds] = useState<string[]>([]);
-  const [transferExpert, setTransferExpert] = useState('');
-  const [transferComment, setTransferComment] = useState('');
-  const [returnMode, setReturnMode] = useState(false);
-  const [comment, setComment] = useState('');
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -662,15 +648,37 @@ function ReviewWorkspace({ user, embedded = false }: { user: User; embedded?: bo
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [syncFailed, setSyncFailed] = useState(false);
-  const [restoredDraftAt, setRestoredDraftAt] = useState('');
   const online = useOnlineStatus();
 
-  const reviewDraftKey = (taskId: string) => `ragchat:review-draft:${user.id}:${taskId}`;
-  const clearReviewDraft = (taskId?: string) => {
-    if (taskId) localStorage.removeItem(reviewDraftKey(taskId));
-    setRestoredDraftAt('');
-  };
 
+  const [taskId, setTaskId] = useState(() => new URLSearchParams(location.search).get('task') || '');
+  const historyPosition = useRef(Number(window.history.state?.reviewIndex || 0));
+  const restoringHistory = useRef(false);
+  const chooseTask = (nextId: string) => {
+    if (!window.dispatchEvent(new Event('ragchat:before-navigate', { cancelable: true }))) return;
+    const url = new URL(location.href); url.searchParams.set('section', 'queue');
+    if (nextId) url.searchParams.set('task', nextId); else url.searchParams.delete('task');
+    if (url.href !== location.href) window.history.pushState({reviewIndex: ++historyPosition.current}, '', url);
+    setTaskId(nextId);
+  };
+  useEffect(() => {
+    window.history.replaceState({...window.history.state, reviewIndex: historyPosition.current}, '', location.href);
+    const open = (event: Event) => { const id = (event as CustomEvent<{taskId: string}>).detail?.taskId; if (id) chooseTask(id); };
+    const close = () => setTaskId('');
+    const pop = () => {
+      if (restoringHistory.current) { restoringHistory.current = false; return; }
+      const next = Number(window.history.state?.reviewIndex || 0);
+      if (!window.dispatchEvent(new Event('ragchat:before-navigate', {cancelable: true}))) {
+        const delta = historyPosition.current - next;
+        if (delta) { restoringHistory.current = true; window.history.go(delta); }
+        return;
+      }
+      historyPosition.current = next;
+      setTaskId(new URLSearchParams(location.search).get('task') || '');
+    };
+    window.addEventListener('ragchat:open-review', open); window.addEventListener('ragchat:queue-close', close); window.addEventListener('popstate', pop);
+    return () => { window.removeEventListener('ragchat:open-review', open); window.removeEventListener('ragchat:queue-close', close); window.removeEventListener('popstate', pop); };
+  }, []);
   const load = useCallback(async () => {
     const params = new URLSearchParams({ sort, status, page: String(page), pageSize: '25' });
     if (hasComment) params.set('hasComment', hasComment);
@@ -692,102 +700,24 @@ function ReviewWorkspace({ user, embedded = false }: { user: User; embedded?: bo
     }
   }, [sort, status, hasComment, representative, assigned, reviewPool, priority, product, search, dateFrom, dateTo, page]);
 
-  const openTask = async (taskId: string, preserveEditor = false) => {
-    try {
-      const data = await api<{ task: ReviewTask; history: Message[] }>(`/api/reviews/${taskId}`);
-      setSelected(data.task); setHistory(data.history);
-      if (!preserveEditor) {
-        const initial = data.task.aiDraft || '';
-        let restored: { answer?: string; updatedAt?: string } | null = null;
-        try { restored = JSON.parse(localStorage.getItem(reviewDraftKey(taskId)) || 'null'); } catch { localStorage.removeItem(reviewDraftKey(taskId)); }
-        const canRestore = Boolean(restored?.answer?.trim()) && data.task.status === 'IN_REVIEW' && (data.task.assignedTo === user.id || user.role === 'ADMIN');
-        setAnswer(canRestore ? restored?.answer || initial : initial);
-        setInitialAnswer(initial);
-        setEditMode(canRestore);
-        setRestoredDraftAt(canRestore ? restored?.updatedAt || new Date().toISOString() : '');
-        setReturnMode(false);
-        setReturnExpert('');
-        setComment('');
-      }
-    } catch (e) { setError((e as Error).message); }
-  };
 
   useEffect(() => { load().catch((e) => setError(e.message)); }, [load]);
-  useEffect(() => { Promise.all([api<{ templates: typeof templates }>('/api/review-templates').then((data) => setTemplates(data.templates)), api<{ experts: typeof workload }>('/api/experts/workload').then((data) => setWorkload(data.experts))]).catch(() => undefined); }, []);
   useEffect(() => {
-    const timer = setInterval(() => { load().catch(() => undefined); if (selected) openTask(selected.id, editMode || returnMode); }, 4_000);
-    return () => clearInterval(timer);
-  }, [load, selected?.id, editMode, returnMode]);
-  useEffect(() => { const handler = (event: BeforeUnloadEvent) => { if (editMode) { event.preventDefault(); event.returnValue = ''; } }; window.addEventListener('beforeunload', handler); return () => window.removeEventListener('beforeunload', handler); }, [editMode]);
-  useEffect(() => { const handler = (event: Event) => { const taskId = (event as CustomEvent<{ taskId?: string }>).detail?.taskId; if (!taskId) return; if (editMode && taskId !== selected?.id) { setError('Сначала завершите редактирование текущего ответа.'); return; } openTask(taskId, editMode || returnMode); }; window.addEventListener('ragchat:open-review', handler); return () => window.removeEventListener('ragchat:open-review', handler); }, [editMode, returnMode, selected?.id]);
+    const timer = window.setInterval(() => load().catch(() => undefined), 4000);
+    return () => window.clearInterval(timer);
+  }, [load]);
+  useEffect(() => { api<{ experts: typeof workload }>('/api/experts/workload').then((data) => setWorkload(data.experts)).catch(() => undefined); }, []);
   useEffect(() => {
     const handler = (event: Event) => {
-      const preset = (event as CustomEvent<{ preset?: string }>).detail?.preset;
-      if (preset === 'mine') { setAssigned(user.id); setPage(1); }
-      if (preset === 'all') { setAssigned(''); setPage(1); }
-      if (preset === 'unassigned') { setAssigned('__unassigned__'); setPage(1); }
+      const preset = (event as CustomEvent<{preset?: string}>).detail?.preset;
+      if (preset) { setAssigned(preset === 'mine' ? user.id : preset === 'unassigned' ? '__unassigned__' : ''); setPage(1); }
     };
     window.addEventListener('ragchat:queue-preset', handler);
     return () => window.removeEventListener('ragchat:queue-preset', handler);
   }, [user.id]);
-  useEffect(() => {
-    if (!editMode || !selected?.id) return;
-    const timer = window.setTimeout(() => {
-      localStorage.setItem(reviewDraftKey(selected.id), JSON.stringify({ answer, updatedAt: new Date().toISOString() }));
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [answer, editMode, selected?.id, user.id]);
-
-  const action = async (kind: 'claim' | 'approve' | 'edit' | 'return' | 'regenerate') => {
-    if (!selected) return;
-    setBusy(true); setError('');
-    try {
-      if (kind === 'claim') await post(`/api/reviews/${selected.id}/claim`);
-      if (kind === 'approve') await post(`/api/reviews/${selected.id}/approve`);
-      if (kind === 'edit') await post(`/api/reviews/${selected.id}/edit-and-send`, { answer });
-      if (kind === 'return') await post(`/api/reviews/${selected.id}/return`, { comment, expertId: returnExpert, version: selected.discussion?.version });
-      if (kind === 'regenerate') await post(`/api/reviews/${selected.id}/regenerate`);
-      if (kind === 'approve' || kind === 'edit' || kind === 'return' || kind === 'regenerate') clearReviewDraft(selected.id);
-      await load();
-      if (kind === 'approve' || kind === 'edit' || kind === 'return' || kind === 'regenerate') { setSelected(null); setEditMode(false); setReturnMode(false); }
-      else await openTask(selected.id);
-    } catch (e) { setError((e as Error).message); }
-    finally { setBusy(false); }
-  };
-
-  const chooseTask = (taskId: string) => {
-    if (editMode) {
-      if (taskId !== selected?.id) setError('Сначала нажмите «Отмена», «Правку на обсуждение» или «Вернуть».');
-      return;
-    }
-    openTask(taskId);
-  };
-  const closeTask = () => { if (editMode) { setError('Сначала нажмите «Отмена», «Правку на обсуждение» или «Вернуть».'); return; } setSelected(null); };
-  const cancelEdit = () => {
-    if (answer !== initialAnswer && !window.confirm('Удалить сохранённую на устройстве правку?')) return;
-    clearReviewDraft(selected?.id);
-    setEditMode(false);
-    setAnswer(initialAnswer);
-  };
   const updatePresence = async (next: 'AVAILABLE' | 'BUSY' | 'DND') => { setPresence(next); try { await patch('/api/experts/me/presence', { status: next }); } catch (e) { setError((e as Error).message); } };
-  const route = async (body: Record<string, unknown>) => { if (!selected) return; try { const data = await patch<{ task: ReviewTask }>(`/api/reviews/${selected.id}/routing`, body); setSelected(data.task); await load(); } catch (e) { setError((e as Error).message); } };
-  const addInternalComment = async () => { if (!selected || internalComment.trim().length < 2) return; try { const data = await post<{ task: ReviewTask }>(`/api/reviews/${selected.id}/comments`, { text: internalComment, mentionIds }); setSelected(data.task); setInternalComment(''); setMentionIds([]); } catch (e) { setError((e as Error).message); } };
-  const transfer = async () => { if (!selected || !transferExpert || transferComment.trim().length < 3) return; try { await post(`/api/reviews/${selected.id}/transfer`, { expertId: transferExpert, comment: transferComment }); setSelected(null); setTransferExpert(''); setTransferComment(''); await load(); } catch (e) { setError((e as Error).message); } };
-  const saveTemplate = async () => { const title = window.prompt('Название шаблона'); if (!title?.trim() || answer.trim().length < 3) return; try { const data = await post<{ template: { id: string; title: string; content: string } }>('/api/review-templates', { title, content: answer }); setTemplates((current) => [...current, data.template]); } catch (e) { setError((e as Error).message); } };
-
-  const filteredTasks = tasks;
-  const canAct = selected?.status === 'IN_REVIEW' && (user.role === 'ADMIN' || selected.representativeId !== user.id) && (selected.assignedTo === user.id || user.role === 'ADMIN');
-  const selectedPool = selected?.reviewPool || 'GENERAL';
-  const poolAllowed = user.role === 'ADMIN' || user.role === 'MANAGER' || (user.role === 'EXPERT' && selectedPool === 'GENERAL') || (user.role === 'SPECIALIST' && selectedPool === 'SPECIALIST');
-  const routeProtected = Boolean(selected?.routedTo && selected.routedTo !== user.id && selected.routedAt && Date.now() < new Date(selected.routedAt).getTime() + 15 * 60_000 && user.role !== 'ADMIN');
-  const claimBlockedReason = !selected || selected.status !== 'WAITING_REVIEW' ? ''
-    : !(user.permissions?.includes('reviews.manage') ?? false) ? 'У вашей учётной записи нет права брать вопросы в работу'
-      : !poolAllowed ? selectedPool === 'SPECIALIST' ? 'Вопрос относится к очереди профильных экспертов' : 'Вопрос относится к общей очереди'
-        : user.role !== 'ADMIN' && selected.representativeId === user.id ? 'Собственный вопрос нельзя согласовывать самостоятельно'
-          : routeProtected ? 'Вопрос временно назначен другому сотруднику' : '';
-  const canClaim = selected?.status === 'WAITING_REVIEW' && !claimBlockedReason;
   const visibleWorkload = workload.filter((expert) => user.role === 'MANAGER' || user.role === 'ADMIN' || expert.role === user.role);
-  const eligibleExperts = experts.filter((expert) => selected?.status === 'DISCUSSION' || expert.role === 'MANAGER' || expert.role === 'ADMIN' || (selected?.reviewPool === 'SPECIALIST' ? expert.role === 'SPECIALIST' : expert.role === 'EXPERT'));
+  const filteredTasks = tasks;
   const queueScope = assigned === user.id ? 'mine' : assigned === '__unassigned__' ? 'unassigned' : 'all';
   const setQueueScope = (scope: 'all' | 'mine' | 'unassigned') => { setAssigned(scope === 'mine' ? user.id : scope === 'unassigned' ? '__unassigned__' : ''); setPage(1); window.dispatchEvent(new CustomEvent('ragchat:queue-scope-changed', { detail: { scope: scope === 'mine' ? 'mine' : 'all' } })); };
   const defaultPool = user.role === 'EXPERT' ? 'GENERAL' : user.role === 'SPECIALIST' ? 'SPECIALIST' : '';
@@ -800,10 +730,12 @@ function ReviewWorkspace({ user, embedded = false }: { user: User; embedded?: bo
   if (product) filterChips.push({ key: 'product', label: product, clear: () => setProduct('') });
   if (dateFrom || dateTo) filterChips.push({ key: 'date', label: `${dateFrom || '…'} — ${dateTo || '…'}`, clear: () => { setDateFrom(''); setDateTo(''); } });
 
+
+  if (taskId) return <ReviewQuestionPage key={taskId} taskId={taskId} user={user} experts={experts} onBack={() => chooseTask('')} />;
   return (
     <section className={cx('review-page', embedded && 'embedded')}>
       {error && <ErrorNotice error={error} onClose={() => setError('')} />}
-      <header className="page-heading"><div><h1>Очередь вопросов</h1><p>Изучите вопрос и источники до принятия в работу.</p></div><div className="expert-toolbar"><label>Мой статус<select value={presence} onChange={(event) => updatePresence(event.target.value as 'AVAILABLE' | 'BUSY' | 'DND')}><option value="AVAILABLE">Доступен</option><option value="BUSY">В работе</option><option value="DND">Не беспокоить</option></select></label><button className="button secondary" onClick={() => load()}><RefreshCw size={16} /> Обновить</button></div></header>
+      <header className="page-heading"><div><h1>Очередь вопросов</h1><p>Откройте вопрос, подготовьте редакцию и обсудите ответ с коллегами.</p></div><div className="expert-toolbar"><label>Мой статус<select value={presence} onChange={(event) => updatePresence(event.target.value as 'AVAILABLE' | 'BUSY' | 'DND')}><option value="AVAILABLE">Доступен</option><option value="BUSY">В работе</option><option value="DND">Не беспокоить</option></select></label><button className="button secondary" onClick={() => load()}><RefreshCw size={16} /> Обновить</button></div></header>
       <div className="expert-load-strip">{visibleWorkload.map((expert) => <div key={expert.id} className={expert.id === user.id ? 'current' : ''}><span className={`presence-dot ${expert.status.toLowerCase()}`} /><strong>{expert.name}</strong><span>{expert.role ? `${roleLabels[expert.role]} · ` : ''}{expert.workload} в работе · {expert.averageReviewMinutes || 0} мин в среднем</span></div>)}</div>
       <div className="review-layout">
         <div className="queue-pane">
@@ -835,7 +767,7 @@ function ReviewWorkspace({ user, embedded = false }: { user: User; embedded?: bo
               <thead><tr><th>Поступил</th><th>SLA</th><th>Направление</th><th>Статус</th><th>Вопрос</th><th>Тема</th><th>Автор</th><th>Исполнитель</th><th>Комментарий</th><th /></tr></thead>
               <tbody>
                 {filteredTasks.map((task) => (
-                  <tr key={task.id} className={cx(selected?.id === task.id && 'selected-row', `priority-${(task.priority || 'NORMAL').toLowerCase()}`)} onClick={() => chooseTask(task.id)}>
+                  <tr key={task.id} className={cx(taskId === task.id && 'selected-row', `priority-${(task.priority || 'NORMAL').toLowerCase()}`)} onClick={() => chooseTask(task.id)}>
                     <td><time>{formatDate(task.createdAt)}</time></td><td><SlaBadge task={task} /></td><td><span className={cx('pool-badge', task.reviewPool === 'SPECIALIST' && 'strategy')}>{poolLabels[task.reviewPool || 'GENERAL']}</span></td><td><StatusBadge status={task.status} /></td>
                     <td className="question-cell">{task.status === 'WAITING_REVIEW' && task.returnTo === user.id && <span className="addressed-label">Закреплён за вами</span>}<strong>{task.question}</strong></td><td>{task.productName || 'Не определён'}</td><td>{task.representative?.name}</td><td>{task.assignedExpert?.name || (task.routedTo ? 'Назначен автоматически' : '—')}</td>
                     <td>{task.hasComment ? <span className="comment-yes" title={task.returnComment}>Да</span> : <span className="muted">Нет</span>}</td>
@@ -848,7 +780,7 @@ function ReviewWorkspace({ user, embedded = false }: { user: User; embedded?: bo
           </div>
           <div className="mobile-review-list" aria-label="Очередь вопросов">
             {filteredTasks.map((task) => (
-              <button type="button" key={task.id} className={cx('mobile-review-card', selected?.id === task.id && 'selected', `priority-${(task.priority || 'NORMAL').toLowerCase()}`)} onClick={() => chooseTask(task.id)}>
+              <button type="button" key={task.id} className={cx('mobile-review-card', taskId === task.id && 'selected', `priority-${(task.priority || 'NORMAL').toLowerCase()}`)} onClick={() => chooseTask(task.id)}>
                 <span className="mobile-review-card-top">
                   <StatusBadge status={task.status} />
                   <SlaBadge task={task} />
@@ -870,43 +802,6 @@ function ReviewWorkspace({ user, embedded = false }: { user: User; embedded?: bo
           {pagination.pages > 1 && <nav className="pagination" aria-label="Страницы очереди"><button className="button secondary" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Назад</button><span>Страница {pagination.page} из {pagination.pages}</span><button className="button secondary" disabled={page >= pagination.pages} onClick={() => setPage((value) => value + 1)}>Далее</button></nav>}
         </div>
 
-        <aside className={cx('review-detail', selected && 'open')}>
-          {!selected ? <div className="detail-empty"><Clipboard size={28} /><h2>Выберите вопрос</h2><p>Полный текст, черновик и источники откроются здесь.</p></div> : (
-            <>
-              <div className="detail-head"><div><StatusBadge status={selected.status} /><SlaBadge task={selected} detailed /><time>{formatDate(selected.createdAt)}</time></div><button className="icon-button" onClick={closeTask} aria-label="Закрыть"><X size={20} /></button></div>
-              <div className="detail-scroll">
-                <section className="review-block"><div className="block-title"><h3>Вопрос сотрудника</h3><span className={cx('pool-badge', selected.reviewPool === 'SPECIALIST' && 'strategy')}>{poolLabels[selected.reviewPool || 'GENERAL']}</span></div><p className="review-question">{selected.question}</p><div className="metadata-line"><span>{selected.representative?.name}</span><span>{selected.conversationTitle}</span><span>{selected.productName || 'Тема не определён'}</span></div>{selected.routingReason && <p className="routing-reason">Маршрутизация ИИ: {selected.routingReason}{selected.routingConfidence != null ? ` · ${Math.round(selected.routingConfidence * 100)}%` : ''}</p>}</section>
-                <section className="review-block task-timing mobile-hidden-review-context"><h3>Время по этапам</h3><div><span><small>Генерация ИИ</small><strong>{selected.timing?.generationMinutes ?? '—'} мин</strong></span><span><small>Ожидание эксперта</small><strong>{selected.timing?.queueMinutes ?? '—'} мин</strong></span><span><small>Проверка</small><strong>{selected.timing?.reviewMinutes ?? '—'} мин</strong></span></div>{selected.delayReason && <p><Clock3 size={15} /> Причина задержки: {selected.delayReason}</p>}</section>
-                {(user.permissions?.includes('reviews.route') ?? user.role === 'ADMIN') && !['DELIVERED', 'DISCUSSION'].includes(selected.status) && <section className="review-block routing-controls mobile-hidden-review-context"><h3>Маршрутизация</h3><div>{(user.role === 'MANAGER' || user.role === 'ADMIN') && <label>Направление<select value={selected.reviewPool || 'GENERAL'} onChange={(event) => route({ reviewPool: event.target.value })}><option value="GENERAL">Общая очередь</option><option value="SPECIALIST">Очередь профильных экспертов</option></select></label>}<label>Приоритет<select value={selected.priority || 'NORMAL'} onChange={(event) => route({ priority: event.target.value })}><option value="NORMAL">Обычный · 120 мин</option><option value="URGENT">Срочный · 60 мин</option><option value="CRITICAL">Критический · 30 мин</option></select></label><label>Назначить<select value={selected.routedTo || ''} onChange={(event) => route({ routedTo: event.target.value })}><option value="">Без назначения</option>{eligibleExperts.map((expert) => <option key={expert.id} value={expert.id}>{expert.firstName} {expert.lastName} · {roleLabels[expert.role]}</option>)}</select></label></div></section>}
-                {selected.returnComment && <section className="return-note"><RotateCcw size={18} /><div><strong>Комментарий возврата</strong><p>{selected.returnComment}</p></div></section>}
-                <DiscussionPanel task={selected} user={user} onChange={async () => { await load(); await openTask(selected.id, true); }} onReturn={() => { setReturnExpert(''); setReturnMode(true); }} />
-                <section className="review-block"><div className="block-title"><h3>{selected.status === 'DELIVERED' ? 'Отправленный ответ' : selected.discussion ? 'Ответ на обсуждении' : 'Черновик ИИ'}</h3>{selected.confidence != null && <span>Уверенность поиска: {Math.round(selected.confidence * 100)}%</span>}</div>
-                  {editMode ? <>{restoredDraftAt && <div className="draft-restored" role="status"><CheckCircle2 size={16} /><span>Восстановлена правка с устройства · {formatDate(restoredDraftAt)}</span></div>}<div className="template-picker"><select defaultValue="" onChange={(event) => { const template = templates.find((item) => item.id === event.target.value); if (template) setAnswer((current) => `${current}${current ? '\n\n' : ''}${template.content}`); event.target.value = ''; }}><option value="">Вставить шаблон…</option>{templates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}</select><button onClick={saveTemplate}>Сохранить как шаблон</button><span>{answer !== initialAnswer ? 'Сохранено на устройстве' : 'Без изменений'}</span></div><textarea className="answer-editor" aria-label="Исправленный ответ" value={answer} onChange={(e) => setAnswer(e.target.value)} /></> : <div className="draft-text message-markdown"><MarkdownMessage content={selected.discussion?.answer || selected.aiDraft || 'Черновик ещё формируется.'} /></div>}
-                </section>
-                <EvidencePanel task={selected} />
-                <section className="review-block response-history mobile-hidden-review-context"><h3>История версий ответа</h3>{selected.responseVersions?.length ? [...selected.responseVersions].reverse().map((version, index) => <details key={version.id} open={index === 0}><summary><span>{version.type === 'AI_DRAFT' ? 'Черновик ИИ' : version.type === 'AI_DEGRADED' ? 'Резервный черновик' : version.type === 'EXPERT_EDIT' ? 'Правка эксперта' : 'Согласованная версия'}</span><time>{formatDate(version.createdAt)}</time></summary><div className="message-markdown"><MarkdownMessage content={version.content} /></div></details>) : <p className="muted">Версии появятся после подготовки первого черновика.</p>}</section>
-                <section className="review-block mobile-hidden-review-context"><h3>Утверждённые ответы экспертов</h3>{selected.ragMeta?.expertKnowledgeMatches?.length ? <div className="source-list">{selected.ragMeta.expertKnowledgeMatches.map((match) => <div className="source-item source-preview" key={match.id}><ShieldCheck size={17} /><div><strong>{match.question}</strong><p>{match.answer}</p><span>Версия {match.version} · совпадение {Math.round(match.score * 100)}%</span></div></div>)}</div> : <p className="muted">Ранее утверждённых ответов по этому вопросу не найдено.</p>}</section>
-                <section className="review-block mobile-hidden-review-context"><h3>Внутренние документы</h3>{selected.sources?.length ? <div className="source-list">{selected.sources.map((source, index) => <div className="source-item source-preview" key={`${source.source}-${index}`}><FileText size={17} /><div><strong>{source.title || source.source}</strong>{source.text && <p>{source.text}</p>}<span>{source.page ? `Страница ${source.page}` : 'Страница не указана'}{source.version ? ` · ред. ${source.version}` : ''}</span></div></div>)}</div> : <p className="muted">Подходящие внутренние фрагменты не найдены.</p>}</section>
-                <section className="review-block mobile-hidden-review-context"><h3>Интернет-источники</h3>{selected.webSources?.length ? <div className="source-list">{selected.webSources.map((source, index) => <a className="source-item source-preview" key={`${source.url}-${index}`} href={source.url} target="_blank" rel="noreferrer"><BookOpen size={17} /><div><strong>{source.title || source.url}</strong>{source.text && <p>{source.text}</p>}<span>{source.trustCategory || 'Интернет-источник: проверьте достоверность'} · {source.url}</span></div></a>)}</div> : <p className="muted">Интернет-источники не получены. Причина указана в черновике; это не означает, что сведений в сети нет.</p>}</section>
-                {history.length > 1 && <section className="review-block"><h3>Контекст диалога</h3><div className="history-list">{history.slice(0, -1).map((message) => <p key={message.id}><strong>{message.authorType === 'USER' ? 'Сотрудник' : 'Официальный ответ'}:</strong> {message.content}</p>)}</div></section>}
-                <section className="review-block collaboration-block"><h3>Внутренние комментарии</h3><div className="internal-comments">{selected.internalComments?.map((item) => <div key={item.id}><strong>{item.authorName || 'Эксперт'}</strong><p>{item.text}</p><time>{formatDate(item.createdAt)}</time></div>)}{!selected.internalComments?.length && <p className="muted">Комментариев пока нет.</p>}</div><textarea value={internalComment} onChange={(event) => setInternalComment(event.target.value)} placeholder="Комментарий для команды" /><div className="mention-picker">{eligibleExperts.filter((expert) => expert.id !== user.id).map((expert) => <label key={expert.id}><input type="checkbox" checked={mentionIds.includes(expert.id)} onChange={(event) => setMentionIds((current) => event.target.checked ? [...current, expert.id] : current.filter((id) => id !== expert.id))} /> @{expert.firstName} {expert.lastName}</label>)}</div><button className="button secondary compact" disabled={internalComment.trim().length < 2} onClick={addInternalComment}>Добавить комментарий</button></section>
-                {canAct && <section className="review-block transfer-block"><h3>Передать коллеге</h3><select value={transferExpert} onChange={(event) => setTransferExpert(event.target.value)}><option value="">Выберите сотрудника</option>{eligibleExperts.filter((expert) => expert.id !== user.id).map((expert) => <option key={expert.id} value={expert.id}>{expert.firstName} {expert.lastName} · {roleLabels[expert.role]}</option>)}</select><textarea value={transferComment} onChange={(event) => setTransferComment(event.target.value)} placeholder="Причина передачи" /><button className="button secondary compact" disabled={!transferExpert || transferComment.trim().length < 3} onClick={transfer}>Передать вопрос</button></section>}
-                {returnMode && <section className="return-form"><label>Кому вернуть вопрос?<select value={returnExpert} onChange={(e) => setReturnExpert(e.target.value)}><option value="">Выберите эксперта</option>{experts.filter((e) => e.isActive && ['EXPERT', 'SPECIALIST'].includes(e.role) && e.id !== selected.representativeId).map((e) => <option key={e.id} value={e.id}>{e.firstName} {e.lastName} · {roleLabels[e.role]}</option>)}</select></label><label>Почему вопрос возвращается в очередь?<textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Комментарий увидят другие эксперты" autoFocus /></label><div><button className="button secondary" onClick={() => setReturnMode(false)}>Отмена</button><button className="button danger" disabled={busy || !returnExpert || comment.trim().length < 3} onClick={() => action('return')}>Вернуть адресату</button></div></section>}
-              </div>
-              <div className="detail-actions">
-                {!selected.aiDraft?.trim() && selected.status !== 'DELIVERED' && (user.role === 'ADMIN' || selected.assignedTo === user.id || !selected.assignedTo) && <button className="button secondary wide" disabled={busy} onClick={() => action('regenerate')}>{busy ? <Spinner /> : <RefreshCw size={17} />} Повторить формирование черновика</button>}
-                {canClaim && <button className="button primary wide" disabled={busy} onClick={() => action('claim')}>{busy ? <Spinner /> : <ShieldCheck size={17} />} Взять в работу</button>}
-                {selected.status === 'WAITING_REVIEW' && !canClaim && <div className="locked-message"><ShieldCheck size={18} /> {claimBlockedReason || 'Вопрос сейчас недоступен для взятия в работу'}</div>}
-                {selected.status === 'IN_REVIEW' && !canAct && <div className="locked-message"><Clock3 size={18} /> Вопрос уже закреплён за {selected.assignedExpert?.name || 'другим экспертом'}</div>}
-                {canAct && !returnMode && <>
-                  <button className="button secondary" onClick={() => { setReturnMode(true); setEditMode(false); }}><RotateCcw size={16} /> Вернуть</button>
-                  {!editMode ? <button className="button secondary" onClick={() => { setRestoredDraftAt(''); setEditMode(true); setAnswer(selected.aiDraft); setInitialAnswer(selected.aiDraft); }}><Edit3 size={16} /> Исправить</button> : <button className="button secondary" onClick={cancelEdit}>Отмена</button>}
-                  {editMode ? <button className="button primary" disabled={busy || answer.trim().length < 3} onClick={() => action('edit')}>{busy ? <Spinner /> : <Send size={16} />} Правку на обсуждение</button> : <button className="button primary" disabled={busy} onClick={() => action('approve')}>{busy ? <Spinner /> : <Check size={16} />} Согласовать и обсудить</button>}
-                </>}
-              </div>
-            </>
-          )}
-        </aside>
       </div>
     </section>
   );
@@ -1104,7 +999,7 @@ function SalesControlPage({ setSection }: { setSection: (section: string) => voi
     </section>
 
     <div className="sales-team-split">
-      <section className="sales-team-section"><div className="section-heading"><h2>Сотрудникставители</h2><span>за {dashboard.periodDays} дней</span></div><div className="sales-team-list">{dashboard.representatives.map((member) => <div key={member.id}><strong>{member.name}</strong><span>{member.questions} вопросов · {member.delivered} завершено</span><small>{member.active ? `${member.active} ожидают ответа` : 'нет активных вопросов'}</small></div>)}{!dashboard.representatives.length && <p className="muted">Активных сотрудников нет.</p>}</div></section>
+      <section className="sales-team-section"><div className="section-heading"><h2>Сотрудники</h2><span>за {dashboard.periodDays} дней</span></div><div className="sales-team-list">{dashboard.representatives.map((member) => <div key={member.id}><strong>{member.name}</strong><span>{member.questions} вопросов · {member.delivered} завершено</span><small>{member.active ? `${member.active} ожидают ответа` : 'нет активных вопросов'}</small></div>)}{!dashboard.representatives.length && <p className="muted">Активных сотрудников нет.</p>}</div></section>
       <section className="sales-team-section"><div className="section-heading"><h2>Эксперты</h2><span>{activeExperts} доступны</span></div><div className="sales-expert-list">{dashboard.experts.map((expert) => <div key={expert.id}><span className={cx('presence-label', expert.status.toLowerCase())}>{expert.status === 'BUSY' ? 'В работе' : expert.status === 'DND' ? 'Не беспокоить' : 'Доступен'}</span><div><strong>{expert.name}</strong><small>{expert.role === 'SPECIALIST' ? 'Профильные эксперты' : 'Эксперт'}</small></div><dl><div><dt>Сейчас</dt><dd>{expert.workload}</dd></div><div><dt>За 7 дней</dt><dd>{expert.completed}</dd></div><div className={cx(expert.overdue > 0 && 'danger')}><dt>Просрочено</dt><dd>{expert.overdue}</dd></div></dl></div>)}</div></section>
     </div>
   </section>;
@@ -1209,7 +1104,7 @@ function UsersPage({ currentUser }: { currentUser: User }) {
       <label>Почта<input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></label>
       <label>Роль<select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}><option value="REQUESTER">Сотрудник</option><option value="EXPERT">Эксперт</option><option value="SPECIALIST">Профильные эксперты</option><option value="MANAGER">Руководители</option><option value="ADMIN">Администратор</option></select></label>
       <label>{editingId ? 'Новый пароль (необязательно)' : 'Временный пароль'}<input type="password" minLength={form.password ? 8 : undefined} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required={!editingId} /></label>
-      {form.role !== 'REQUESTER' && <><label>Рабочий статус<select value={form.expertStatus} onChange={(e) => setForm({ ...form, expertStatus: e.target.value })}><option value="AVAILABLE">Доступен</option><option value="BUSY">В работе</option><option value="DND">Не беспокоить</option></select></label><label>Специализации<input value={form.specialtiesText} onChange={(e) => setForm({ ...form, specialtiesText: e.target.value })} placeholder="гинекология, гастроэнтерология, стратегия" /></label><label>Темы<input value={form.productsText} onChange={(e) => setForm({ ...form, productsText: e.target.value })} placeholder="Продукт B, ..." /></label></>}
+      {form.role !== 'REQUESTER' && <><label>Рабочий статус<select value={form.expertStatus} onChange={(e) => setForm({ ...form, expertStatus: e.target.value })}><option value="AVAILABLE">Доступен</option><option value="BUSY">В работе</option><option value="DND">Не беспокоить</option></select></label><label>Специализации<input value={form.specialtiesText} onChange={(e) => setForm({ ...form, specialtiesText: e.target.value })} placeholder="поддержка, обучение, архитектура" /></label><label>Темы<input value={form.productsText} onChange={(e) => setForm({ ...form, productsText: e.target.value })} placeholder="Продукт, процесс, ..." /></label></>}
       <fieldset className="permission-editor"><legend>Точечные права</legend><p>«По роли» сохраняет стандартный доступ. Разрешение или запрет переопределяют его для этой учётной записи.</p>{permissionCatalog.map((permission) => <label key={permission.id}><span>{permission.label}</span><select value={permission.id in form.permissionOverrides ? String(form.permissionOverrides[permission.id]) : 'default'} onChange={(event) => { const next = { ...form.permissionOverrides }; if (event.target.value === 'default') delete next[permission.id]; else next[permission.id] = event.target.value === 'true'; setForm({ ...form, permissionOverrides: next }); }}><option value="default">По роли</option><option value="true">Разрешить</option><option value="false">Запретить</option></select></label>)}</fieldset>
       <button className="button primary">{editingId ? 'Сохранить изменения' : 'Создать учётную запись'}</button>
     </form>}
@@ -1253,7 +1148,7 @@ function AllChatsPage() {
   };
   const resetFilters = () => { setOwnerSearch(''); setDateMode('all'); setExactDate(''); setDateFrom(''); setDateTo(''); };
   const hasFilters = Boolean(ownerSearch || dateMode !== 'all');
-  return <section className="content-page">{error && <ErrorNotice error={error} onClose={() => setError('')} />}<header className="page-heading"><div><h1>Все диалоги</h1><p>Полная история, включая чаты, скрытые предметными представителями.</p></div><button className="button secondary" onClick={() => load()}><RefreshCw size={16} /> Обновить</button></header>
+  return <section className="content-page">{error && <ErrorNotice error={error} onClose={() => setError('')} />}<header className="page-heading"><div><h1>Все диалоги</h1><p>Полная история, включая чаты, скрытые сотрудниками.</p></div><button className="button secondary" onClick={() => load()}><RefreshCw size={16} /> Обновить</button></header>
     <div className="directory-toolbar chat-directory-toolbar"><label className="search-field"><Search size={16} /><input value={ownerSearch} onChange={(e) => setOwnerSearch(e.target.value)} placeholder="ФИО или почта пользователя" /></label><select value={dateMode} onChange={(e) => setDateMode(e.target.value as typeof dateMode)} aria-label="Способ выбора даты"><option value="all">Любая дата</option><option value="exact">Конкретная дата</option><option value="range">Период</option></select>{dateMode === 'exact' && <label className="date-filter">Дата обновления<input type="date" value={exactDate} onChange={(e) => setExactDate(e.target.value)} /></label>}{dateMode === 'range' && <><label className="date-filter">С<input type="date" value={dateFrom} max={dateTo || undefined} onChange={(e) => setDateFrom(e.target.value)} /></label><label className="date-filter">По<input type="date" value={dateTo} min={dateFrom || undefined} onChange={(e) => setDateTo(e.target.value)} /></label></>}<span>{loading ? 'Поиск…' : `Найдено: ${conversations.length}`}</span>{hasFilters && <button className="button secondary compact" onClick={resetFilters}><X size={14} /> Сбросить</button>}</div>
     <div className="chat-audit-layout"><div className="table-wrap chat-audit-table-wrap"><table className="queue-table"><thead><tr><th>Обновлён</th><th>Название</th><th>Владелец</th><th>Состояние</th><th>Удалён сотрудником</th><th /></tr></thead><tbody>{conversations.map((conversation) => <tr key={conversation.id} className={selected?.id === conversation.id ? 'selected-row' : ''} onClick={() => open(conversation)}><td>{formatDate(conversation.updatedAt)}</td><td><strong>{conversation.title}</strong></td><td><div className="owner-cell"><strong>{conversation.owner?.name}</strong><span>{conversation.owner?.email}</span></div></td><td>{conversation.activeTask ? <StatusBadge status={conversation.activeTask.status} /> : 'Нет активного вопроса'}</td><td>{conversation.deletedByOwnerAt ? `Да, ${formatDate(conversation.deletedByOwnerAt)}` : 'Нет'}</td><td><button className="icon-button row-open" onClick={(event) => { event.stopPropagation(); open(conversation); }} aria-label={`Открыть диалог ${conversation.title}`}><ChevronRight size={17} /></button></td></tr>)}{!loading && conversations.length === 0 && <tr><td colSpan={6}><div className="table-empty"><MessageSquare size={23} /><strong>Диалоги не найдены</strong><span>Измените пользователя или диапазон дат.</span></div></td></tr>}</tbody></table></div><div className="mobile-admin-list mobile-chat-list">{conversations.map((conversation) => <button key={conversation.id} className={cx('mobile-admin-card', selected?.id === conversation.id && 'selected')} onClick={() => open(conversation)}><span className="mobile-admin-card-head"><span><strong>{conversation.title}</strong><small>{conversation.owner?.name} · {conversation.owner?.email}</small></span><ChevronRight size={19} /></span><span className="mobile-chat-card-meta"><time>{formatDate(conversation.updatedAt)}</time>{conversation.activeTask ? <StatusBadge status={conversation.activeTask.status} /> : <small>Нет активного вопроса</small>}</span>{conversation.deletedByOwnerAt && <span className="mobile-deleted-label">Скрыт сотрудником · {formatDate(conversation.deletedByOwnerAt)}</span>}</button>)}{!loading && conversations.length === 0 && <div className="mobile-admin-empty"><MessageSquare size={23} /><strong>Диалоги не найдены</strong><span>Измените фильтры.</span></div>}</div><aside className="chat-audit-detail">{!selected ? <div className="detail-empty"><MessageSquare size={28} /><h2>Выберите диалог</h2><p>Эксперт и администратор могут прочитать полный официальный диалог.</p></div> : <><div className="editor-head"><div><span>{selected.owner?.name}</span><h2>{selected.title}</h2></div><button className="icon-button" onClick={() => setSelected(null)} aria-label="Закрыть диалог"><X size={20} /></button></div><div className="audit-messages">{messages.map((message) => <div key={message.id} className={message.authorType === 'USER' ? 'from-user' : 'from-bot'}><strong>{message.authorType === 'USER' ? 'Сотрудник' : 'Официальный ответ'}</strong>{message.authorType === 'ASSISTANT' ? <div className="message-markdown audit-markdown"><MarkdownMessage content={message.content} /></div> : <p>{message.content}</p>}<time>{formatDate(message.createdAt)}</time></div>)}</div></>}</aside></div></section>;
 }
@@ -1401,13 +1296,20 @@ export default function App() {
     const timer = window.setTimeout(() => {
       if (taskId && section === 'queue') window.dispatchEvent(new CustomEvent('ragchat:open-review', { detail: { taskId } }));
       if (conversationId && (section === 'chats' || section === 'my-chats')) window.dispatchEvent(new CustomEvent('ragchat:open-conversation', { detail: { conversationId } }));
-      window.history.replaceState({}, '', window.location.pathname);
+      if (!taskId) window.history.replaceState({}, '', window.location.pathname);
     }, 150);
     return () => window.clearTimeout(timer);
   }, [user, section]);
 
   const login = (token: string, nextUser: User) => { session.token = token; setUser(nextUser); setSection(initialSectionFor(nextUser)); };
-  const logout = () => { session.token = ''; setUser(null); setSection(''); };
+  const navigateSection = (next: string) => {
+    if (!window.dispatchEvent(new Event('ragchat:before-navigate', {cancelable: true}))) return;
+    const url = new URL(location.href); url.searchParams.delete('task'); url.searchParams.set('section', next);
+    window.history.replaceState(window.history.state, '', url);
+    if (next === 'queue') window.dispatchEvent(new Event('ragchat:queue-close'));
+    setSection(next);
+  };
+  const logout = () => { if (!window.dispatchEvent(new Event('ragchat:before-navigate', {cancelable: true}))) return; session.token = ''; setUser(null); setSection(''); };
   const installApp = async () => {
     const prompt = installPromptRef.current;
     if (!prompt) return false;
@@ -1423,8 +1325,8 @@ export default function App() {
   if (!user) return <LoginPage onLogin={login} />;
 
   return (
-    <AppShell user={user} section={section} setSection={setSection} onLogout={logout} installAvailable={installAvailable} appInstalled={appInstalled} onInstall={installApp}>
-      <WorkspaceRouter user={user} section={section} setSection={setSection} />
+    <AppShell user={user} section={section} setSection={navigateSection} onLogout={logout} installAvailable={installAvailable} appInstalled={appInstalled} onInstall={installApp}>
+      <WorkspaceRouter user={user} section={section} setSection={navigateSection} />
     </AppShell>
   );
 }

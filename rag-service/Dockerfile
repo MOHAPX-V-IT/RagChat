@@ -2,7 +2,7 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY main.py .
+COPY main.py draft_synthesis.py ./
 RUN useradd -m app && mkdir /app/data && chown app:app /app/data
 USER app
 EXPOSE 8010

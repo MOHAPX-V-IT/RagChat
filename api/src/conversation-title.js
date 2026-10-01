@@ -25,17 +25,17 @@ export function fallbackConversationTitle(question) {
   cleaned = cleaned.replace(/^(?:привет|добрый\s+(?:день|вечер|утро))[,!\s]*/iu, '').trim();
   cleaned = cleaned.replace(/^(?:подскажи(?:те)?|скажите)(?:\s*,?\s*пожалуйста)?[,!:]?\s*/iu, '').trim();
 
-  const overview = cleaned.match(/^(?:расскажи(?:те)?(?:\s+мне)?(?:\s+подробнее)?\s+(?:про|о|об)|что\s+(?:такое|за\s+(?:тема|бад)))\s+(.+)$/iu);
+  const overview = cleaned.match(/^(?:расскажи(?:те)?(?:\s+мне)?(?:\s+подробнее)?\s+(?:про|о|об)|что\s+(?:такое|за\s+(?:тема|продукт)))\s+(.+)$/iu);
   if (overview) cleaned = `${overview[1]}: общая информация`;
 
-  const usage = cleaned.match(/^(?:можно\s+ли\s+)?(?:применять|принимать|использовать)\s+(.+?)\s+при\s+(.+)$/iu);
+  const usage = cleaned.match(/^(?:можно\s+ли\s+)?(?:применять|использовать)\s+(.+?)\s+при\s+(.+)$/iu);
   if (usage) cleaned = `${usage[1]} при ${usage[2]}`;
 
-  const administration = cleaned.match(/^(?:как|когда)\s+(?:применять|принимать|использовать)\s+(.+)$/iu);
-  if (administration) cleaned = `Приём ${administration[1]}`;
+  const administration = cleaned.match(/^(?:как|когда)\s+(?:применять|использовать)\s+(.+)$/iu);
+  if (administration) cleaned = `Использование ${administration[1]}`;
 
-  const contraindications = cleaned.match(/^(?:какие\s+)?противопоказания\s+(?:у|для)\s+(.+)$/iu);
-  if (contraindications) cleaned = `${contraindications[1]}: противопоказания`;
+  const limitations = cleaned.match(/^(?:какие\s+)?ограничения\s+(?:у|для)\s+(.+)$/iu);
+  if (limitations) cleaned = `${limitations[1]}: ограничения`;
 
   cleaned = cleaned ? `${cleaned[0].toLocaleUpperCase('ru-RU')}${cleaned.slice(1)}` : 'Общий вопрос';
   return shorten(cleaned);
