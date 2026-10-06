@@ -1,20 +1,28 @@
-![RagChat — AI drafts. People decide.](docs/assets/ragchat-social-preview.jpg)
-
 # RagChat
 
-**AI drafts. People decide.**
+**Turn an AI draft into a reviewed answer before it reaches a colleague.**
 
 **English** · [Русский](README.ru.md)
 
-A self-hosted, open-source starter for knowledge-based chat with **human review before delivery**. RagChat brings questions, retrieved evidence, AI drafts, expert corrections, peer discussion, notifications, and reusable answers into one workflow.
+A self-hosted, open-source starter for teams answering internal questions from documents. A requester asks; RagChat prepares a draft; an expert reviews it; the team can discuss revisions; only the released answer reaches the requester.
 
-The central idea: **generating an answer and authorizing its delivery are different jobs.**
+It is for internal support and knowledge teams that need a named person to own each answer. The main value is a **visible handoff from AI draft to human-reviewed response**, with the corrections available for future retrieval.
 
-Useful for internal support, employee onboarding, product knowledge, and operational guidance—where a fast draft helps, but an unreviewed answer should not become the organization's official response.
+![RagChat — AI drafts. People decide.](docs/assets/ragchat-social-preview.jpg)
 
 > **Status:** an extensible starter, not a turnkey enterprise platform. The UI is currently Russian; documentation is available in English and Russian. No company data, existing accounts, documents, model credentials, or search provider are bundled. The default model is a clearly labeled mock and the knowledge base is empty.
 
-[Quick start](#quick-start) · [Workflow](#how-it-works) · [Why RagChat](#why-choose-ragchat) · [Integrations](#connect-your-model-search-and-knowledge) · [Limitations](#current-limitations) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)
+[Start here](#what-you-can-run-today) · [Quick start](#quick-start) · [Workflow](#how-it-works) · [Integrations](#connect-your-model-search-and-knowledge) · [Limitations](#current-limitations) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)
+
+## What you can run today
+
+| Goal | What is included | What you must add or verify |
+|---|---|---|
+| Evaluate the workflow locally | Accounts, chat, queues, editing, peer discussion and answer delivery with an explicit mock draft. | Run the Compose stack and create test users. The complete container stack has not yet been validated end to end. |
+| Pilot a useful knowledge assistant | Text-PDF ingestion, lexical retrieval, expert-answer storage and HTTP contracts for model and web search. | Connect and evaluate your own model adapter; add a search adapter if web evidence is needed. Supply your own documents. |
+| Run it for an organization | Role controls, audit events, optional email/push and a sample HTTPS entry point. | Test the full deployment, data policy, backups, restore, monitoring and external delivery channels in your environment. |
+
+The smallest useful product loop is **ask → retrieve → draft → review → release**. Peer revisions, voting, routing, reminders and analytics support teams with more reviewers; they are not prerequisites for understanding the core loop. In the default mock configuration, the workflow is demonstrable but the draft is a placeholder, not a factual AI answer.
 
 ## The problems it addresses
 
